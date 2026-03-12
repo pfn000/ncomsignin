@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import mic from 'mic';
 import { fft } from 'fft-js';
 import DSP from 'dsp.js';
+import { createPhysicalFallbackChallenge, deriveNoiseProfile, verifyPhysicalFallback } from './physicalFallback';
 import { createPhysicalFallbackChallenge, verifyPhysicalFallback } from './physicalFallback';
 import { fft } from 'fft-js';
 import DSP from 'dsp.js';
@@ -18,6 +19,9 @@ const { app } = expressWs(appBase);
 const bonjour = new Bonjour();
 
 let currentFallbackChallenge = createPhysicalFallbackChallenge();
+const handshakeSessions = new Map<string, { verifiedAtMs: number; trustedOrigin?: string }>();
+
+app.use(express.json({ limit: '2mb' }));
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.json());
@@ -40,6 +44,22 @@ app.post('/verify-token', (req, res) => {
   }
 });
 
+app.post('/fallback/noise-profile', (req, res) => {
+  const sampleRateHz = Number(req.body?.sampleRateHz ?? 44100);
+  const samples = (req.body?.samples as number[] | undefined) ?? [];
+  if (!Array.isArray(samples) || samples.length === 0) {
+    return res.status(400).json({ error: 'samples are required' });
+  }
+
+  const noiseProfile = deriveNoiseProfile(samples, sampleRateHz);
+  return res.json(noiseProfile);
+});
+
+app.post('/fallback/challenge', (req, res) => {
+  const sampleRateHz = Number(req.body?.sampleRateHz ?? 44100);
+  const samples = (req.body?.samples as number[] | undefined) ?? [];
+  const noiseProfile = samples.length > 0 ? deriveNoiseProfile(samples, sampleRateHz) : undefined;
+  currentFallbackChallenge = createPhysicalFallbackChallenge(noiseProfile);
 app.post('/fallback/challenge', (_req, res) => {
   currentFallbackChallenge = createPhysicalFallbackChallenge();
   res.json(currentFallbackChallenge);
@@ -55,6 +75,34 @@ app.post('/fallback/verify', (req, res) => {
   }
 
   const result = verifyPhysicalFallback(currentFallbackChallenge, proof, samples, sampleRateHz);
+
+  if (result.accepted) {
+    const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+    handshakeSessions.set(sessionId, {
+      verifiedAtMs: Date.now(),
+      trustedOrigin: req.body?.trustedOrigin
+    });
+
+    return res.json({ ...result, sessionId });
+  }
+
+  return res.json(result);
+});
+
+app.get('/extension/session/:sessionId', (req, res) => {
+  const session = handshakeSessions.get(req.params.sessionId);
+  if (!session) {
+    return res.status(404).json({ active: false });
+  }
+
+  if (Date.now() - session.verifiedAtMs > 30_000) {
+    handshakeSessions.delete(req.params.sessionId);
+    return res.status(410).json({ active: false, expired: true });
+  }
+
+  return res.json({ active: true, ...session });
+});
+
   return res.json(result);
 });
 

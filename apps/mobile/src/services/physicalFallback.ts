@@ -1,5 +1,9 @@
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
+
+type HapticBurst = { durationMs: number; gapAfterMs: number; intensity: number };
+type UltrasonicBand = { frequencyHz: number; gain: number };
+type NoiseProfile = { rms: number; peak: number; suggestedIntensityScale: number; filteredRms: number };
 type HapticBurst = { durationMs: number; gapAfterMs: number; intensity: number };
 type UltrasonicBand = { frequencyHz: number; gain: number };
 type PhysicalFallbackChallenge = {
@@ -8,6 +12,7 @@ type PhysicalFallbackChallenge = {
   expiresAtMs: number;
   expectedBands: UltrasonicBand[];
   hapticBursts: HapticBurst[];
+  noiseProfile?: NoiseProfile;
 };
 type PhysicalFallbackProof = {
   challengeId: string;
@@ -18,6 +23,10 @@ type PhysicalFallbackProof = {
 };
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+const encodeHapticBursts = (bursts: HapticBurst[]): string =>
+  bursts
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -31,6 +40,12 @@ const encodeHapticBursts = (bursts: HapticBurst[]): string => {
     })
     .join('');
 
+const applyAdaptiveIntensity = (bursts: HapticBurst[], noiseProfile?: NoiseProfile): HapticBurst[] => {
+  const scale = noiseProfile?.suggestedIntensityScale ?? 1;
+  return bursts.map((burst) => ({
+    ...burst,
+    intensity: clamp(burst.intensity * scale, 0.2, 1)
+  }));
   return packed;
 };
 
@@ -65,6 +80,9 @@ export const runPhysicalFallbackChallenge = async (
     throw new Error('physical fallback challenge expired');
   }
 
+  const adaptiveBursts = applyAdaptiveIntensity(challenge.hapticBursts, challenge.noiseProfile);
+
+  for (const burst of adaptiveBursts) {
   for (const burst of challenge.hapticBursts) {
     if (burst.intensity >= 0.66) {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -83,6 +101,7 @@ export const runPhysicalFallbackChallenge = async (
     challengeId: challenge.challengeId,
     deviceId,
     issuedAtMs: now,
+    compressedHaptics: encodeHapticBursts(adaptiveBursts),
     compressedHaptics: encodeHapticBursts(challenge.hapticBursts),
     ultrasonicBands: challenge.expectedBands
   };

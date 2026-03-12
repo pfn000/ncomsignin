@@ -2,6 +2,7 @@ import { fft } from 'fft-js';
 
 type HapticBurst = { durationMs: number; gapAfterMs: number; intensity: number };
 type UltrasonicBand = { frequencyHz: number; gain: number };
+type NoiseProfile = { rms: number; peak: number; suggestedIntensityScale: number; filteredRms: number };
 
 type PhysicalFallbackChallenge = {
   challengeId: string;
@@ -9,6 +10,7 @@ type PhysicalFallbackChallenge = {
   expiresAtMs: number;
   expectedBands: UltrasonicBand[];
   hapticBursts: HapticBurst[];
+  noiseProfile?: NoiseProfile;
 };
 
 type PhysicalFallbackProof = {
@@ -20,6 +22,8 @@ type PhysicalFallbackProof = {
 };
 
 const CHALLENGE_TTL_MS = 60_000;
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 const decodeHaptics = (compressedHaptics: string): HapticBurst[] => {
   const bursts: HapticBurst[] = [];
@@ -39,6 +43,42 @@ const spectralMagnitude = (samples: number[], sampleRateHz: number, frequencyHz:
   return Math.hypot(re, im);
 };
 
+const calculateRms = (samples: number[]) => {
+  const energy = samples.reduce((acc, sample) => acc + sample * sample, 0);
+  return Math.sqrt(energy / Math.max(samples.length, 1));
+};
+
+const applyNoiseGate = (samples: number[], gate = 0.02) =>
+  samples.map((sample) => (Math.abs(sample) < gate ? 0 : sample));
+
+const applySimpleBandPass = (samples: number[], sampleRateHz: number, lowHz: number, highHz: number) => {
+  const bins = fft(samples);
+  const binWidth = sampleRateHz / Math.max(samples.length, 1);
+  const filteredBins = bins.map((pair: [number, number], idx: number) => {
+    const freq = idx * binWidth;
+    if (freq >= lowHz && freq <= highHz) {
+      return pair;
+    }
+    return [0, 0] as [number, number];
+  });
+
+  return filteredBins.map((pair: [number, number]) => pair[0] / samples.length);
+};
+
+export const deriveNoiseProfile = (microphoneSamples: number[], sampleRateHz: number): NoiseProfile => {
+  const peak = Math.max(...microphoneSamples.map((sample) => Math.abs(sample)), 0);
+  const rms = calculateRms(microphoneSamples);
+  const filtered = applySimpleBandPass(applyNoiseGate(microphoneSamples), sampleRateHz, 17_500, 20_500);
+  const filteredRms = calculateRms(filtered);
+  const suggestedIntensityScale = clamp(1 + rms * 2.2 + peak * 0.8, 1, 1.8);
+
+  return { rms, peak, suggestedIntensityScale, filteredRms };
+};
+
+export const createPhysicalFallbackChallenge = (noiseProfile?: NoiseProfile): PhysicalFallbackChallenge => {
+  const issuedAtMs = Date.now();
+  const scale = noiseProfile?.suggestedIntensityScale ?? 1;
+
 export const createPhysicalFallbackChallenge = (): PhysicalFallbackChallenge => {
   const issuedAtMs = Date.now();
   return {
@@ -46,6 +86,15 @@ export const createPhysicalFallbackChallenge = (): PhysicalFallbackChallenge => 
     issuedAtMs,
     expiresAtMs: issuedAtMs + CHALLENGE_TTL_MS,
     expectedBands: [
+      { frequencyHz: 18250, gain: clamp(0.35 * scale, 0.2, 0.7) },
+      { frequencyHz: 19400, gain: clamp(0.3 * scale, 0.2, 0.7) }
+    ],
+    hapticBursts: [
+      { durationMs: 120, gapAfterMs: 70, intensity: clamp(0.35 * scale, 0.2, 1) },
+      { durationMs: 180, gapAfterMs: 80, intensity: clamp(0.66 * scale, 0.35, 1) },
+      { durationMs: 220, gapAfterMs: 120, intensity: clamp(1 * scale, 0.6, 1) }
+    ],
+    noiseProfile
       { frequencyHz: 18250, gain: 0.35 },
       { frequencyHz: 19400, gain: 0.3 }
     ],
@@ -71,6 +120,7 @@ export const verifyPhysicalFallback = (
     return { accepted: false, reason: 'challenge-mismatch' };
   }
 
+  const denoised = applySimpleBandPass(applyNoiseGate(microphoneSamples), sampleRateHz, 17_500, 20_500);
   const decodedBursts = decodeHaptics(proof.compressedHaptics);
   if (decodedBursts.length !== challenge.hapticBursts.length) {
     return { accepted: false, reason: 'haptic-pattern-mismatch' };
@@ -89,6 +139,8 @@ export const verifyPhysicalFallback = (
   const hapticScore = Math.max(0, 1 - hapticError / 600);
 
   const ultrasonicScores = challenge.expectedBands.map((band) => {
+    const magnitude = spectralMagnitude(denoised, sampleRateHz, band.frequencyHz);
+    const normalized = magnitude / denoised.length;
     const magnitude = spectralMagnitude(microphoneSamples, sampleRateHz, band.frequencyHz);
     const normalized = magnitude / microphoneSamples.length;
     return normalized;
@@ -97,6 +149,7 @@ export const verifyPhysicalFallback = (
   const ultrasonicScore = ultrasonicScores.reduce((a, b) => a + b, 0) / ultrasonicScores.length;
   const tapProximityScore = Math.min(1, Math.max(...microphoneSamples.map((sample) => Math.abs(sample))) * 1.8);
 
+  const accepted = hapticScore >= 0.7 && ultrasonicScore >= 0.008 && tapProximityScore >= 0.55;
   const accepted = hapticScore >= 0.7 && ultrasonicScore >= 0.015 && tapProximityScore >= 0.55;
 
   return {

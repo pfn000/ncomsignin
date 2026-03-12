@@ -33,10 +33,23 @@ export default function App() {
     return stop;
   }, []);
 
+  const handlePhoneTapAuth = async () => {
+    try {
+      setStatus('Run TNS fallback: hold phone to screen. In noisy rooms vibration intensity auto-scales.');
+      const proof = await runPhysicalFallbackChallenge(demoChallenge, 'mobile-demo-device');
+      setStatus(`Fallback proof generated: ${proof.challengeId}`);
+    } catch (error) {
+      setStatus(`Fallback failed: ${(error as Error).message}`);
+    }
+  };
+
   return (
     <PaperProvider theme={appTheme(scheme === 'dark')}>
       <Text variant="headlineMedium">ProximityAuth Mobile</Text>
       <Text>{status}</Text>
+      <Button mode="contained" onPress={handlePhoneTapAuth} style={{ marginTop: 12 }}>
+        Tap Phone To Screen (Fallback Auth)
+      </Button>
     </PaperProvider>
   );
 }
