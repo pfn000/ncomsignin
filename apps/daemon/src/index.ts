@@ -8,6 +8,9 @@ import mic from 'mic';
 import { fft } from 'fft-js';
 import DSP from 'dsp.js';
 import { createPhysicalFallbackChallenge, deriveNoiseProfile, verifyPhysicalFallback } from './physicalFallback';
+import { createPhysicalFallbackChallenge, verifyPhysicalFallback } from './physicalFallback';
+import { fft } from 'fft-js';
+import DSP from 'dsp.js';
 
 const port = Number(process.env.DAEMON_PORT ?? 8787);
 const jwtSecret = process.env.JWT_SECRET ?? 'development-secret';
@@ -19,6 +22,9 @@ let currentFallbackChallenge = createPhysicalFallbackChallenge();
 const handshakeSessions = new Map<string, { verifiedAtMs: number; trustedOrigin?: string }>();
 
 app.use(express.json({ limit: '2mb' }));
+
+app.use(express.json({ limit: '2mb' }));
+app.use(express.json());
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'proximityauth-daemon' });
@@ -54,6 +60,8 @@ app.post('/fallback/challenge', (req, res) => {
   const samples = (req.body?.samples as number[] | undefined) ?? [];
   const noiseProfile = samples.length > 0 ? deriveNoiseProfile(samples, sampleRateHz) : undefined;
   currentFallbackChallenge = createPhysicalFallbackChallenge(noiseProfile);
+app.post('/fallback/challenge', (_req, res) => {
+  currentFallbackChallenge = createPhysicalFallbackChallenge();
   res.json(currentFallbackChallenge);
 });
 
@@ -95,6 +103,9 @@ app.get('/extension/session/:sessionId', (req, res) => {
   return res.json({ active: true, ...session });
 });
 
+  return res.json(result);
+});
+
 app.ws('/proximity', (ws) => {
   ws.on('message', (rawData) => {
     const input = rawData.toString().split(',').map(Number).filter(Number.isFinite);
@@ -105,6 +116,7 @@ app.ws('/proximity', (ws) => {
 
     const bins = fft(input);
     const magnitudes = bins.map((pair: [number, number]) => Math.hypot(pair[0], pair[1]));
+    const magnitudes = bins.map(([re, im]) => Math.hypot(re, im));
     const maxMagnitude = Math.max(...magnitudes);
     const normalized = maxMagnitude / input.length;
 

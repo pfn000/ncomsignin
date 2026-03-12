@@ -4,6 +4,8 @@ import { Audio } from 'expo-av';
 type HapticBurst = { durationMs: number; gapAfterMs: number; intensity: number };
 type UltrasonicBand = { frequencyHz: number; gain: number };
 type NoiseProfile = { rms: number; peak: number; suggestedIntensityScale: number; filteredRms: number };
+type HapticBurst = { durationMs: number; gapAfterMs: number; intensity: number };
+type UltrasonicBand = { frequencyHz: number; gain: number };
 type PhysicalFallbackChallenge = {
   challengeId: string;
   issuedAtMs: number;
@@ -25,6 +27,11 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 
 const encodeHapticBursts = (bursts: HapticBurst[]): string =>
   bursts
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+const encodeHapticBursts = (bursts: HapticBurst[]): string => {
+  const packed = bursts
     .map((burst) => {
       const duration = clamp(Math.round(burst.durationMs), 0, 4095).toString(16).padStart(3, '0');
       const gap = clamp(Math.round(burst.gapAfterMs), 0, 4095).toString(16).padStart(3, '0');
@@ -39,6 +46,7 @@ const applyAdaptiveIntensity = (bursts: HapticBurst[], noiseProfile?: NoiseProfi
     ...burst,
     intensity: clamp(burst.intensity * scale, 0.2, 1)
   }));
+  return packed;
 };
 
 const createMixedUltrasonicTone = async (bands: UltrasonicBand[], durationMs: number) => {
@@ -52,6 +60,8 @@ const createMixedUltrasonicTone = async (bands: UltrasonicBand[], durationMs: nu
     pcm[i] = Math.round(clamp(sample, -1, 1) * 32767);
   }
 
+  // expo-av cannot directly stream raw PCM, but setAudioModeAsync ensures playback path is active
+  // while native audio layers (react-native-audio-api) can be added for low-latency delivery.
   await Audio.setAudioModeAsync({
     allowsRecordingIOS: false,
     playsInSilentModeIOS: true,
@@ -73,6 +83,7 @@ export const runPhysicalFallbackChallenge = async (
   const adaptiveBursts = applyAdaptiveIntensity(challenge.hapticBursts, challenge.noiseProfile);
 
   for (const burst of adaptiveBursts) {
+  for (const burst of challenge.hapticBursts) {
     if (burst.intensity >= 0.66) {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } else if (burst.intensity >= 0.33) {
@@ -91,6 +102,7 @@ export const runPhysicalFallbackChallenge = async (
     deviceId,
     issuedAtMs: now,
     compressedHaptics: encodeHapticBursts(adaptiveBursts),
+    compressedHaptics: encodeHapticBursts(challenge.hapticBursts),
     ultrasonicBands: challenge.expectedBands
   };
 };
