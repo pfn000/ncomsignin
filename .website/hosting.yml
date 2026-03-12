@@ -1,0 +1,6 @@
+site:
+  name: proximityauth-site
+  root: .website
+  routes:
+    - path: /
+      file: index.html

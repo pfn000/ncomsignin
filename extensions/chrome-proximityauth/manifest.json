@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "ProximityAuth Handshake",
+  "version": "0.2.0",
+  "description": "Tap-N-Sign local handshake and consented autofill helper.",
+  "permissions": ["storage", "alarms", "notifications", "activeTab", "scripting", "tabs"],
+  "host_permissions": ["http://127.0.0.1:8787/*", "<all_urls>"],
+  "action": {
+    "default_title": "ProximityAuth Handshake",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "service-worker.js"
+  }
+}

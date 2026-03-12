@@ -1,0 +1,9 @@
+node_modules
+.next
+dist
+.expo
+.DS_Store
+npm-debug.log*
+.Apps/iOS/**/*.ipa
+.Apps/iOS/**/*.appclip
+.Apps/Android/**/*.apk
