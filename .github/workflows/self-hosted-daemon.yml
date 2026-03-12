@@ -1,0 +1,54 @@
+name: Self-Hosted Daemon Orchestrator
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  host-stack:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build deployable targets
+        run: npm run build
+
+      - name: Start daemon on background process
+        run: |
+          nohup npm run start -w @proximityauth/daemon > daemon.log 2>&1 &
+          echo $! > daemon.pid
+          sleep 4
+          curl --fail http://127.0.0.1:8787/health
+
+      - name: Start web portal on port 3000
+        run: |
+          nohup npm run start -w @proximityauth/web -- --hostname 0.0.0.0 --port 3000 > web.log 2>&1 &
+          echo $! > web.pid
+          sleep 8
+          curl --fail http://127.0.0.1:3000
+
+      - name: Upload runtime logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-hosted-runtime-logs
+          path: |
+            daemon.log
+            web.log
+
+      - name: Cleanup background processes
+        if: always()
+        run: |
+          test -f daemon.pid && kill $(cat daemon.pid) || true
+          test -f web.pid && kill $(cat web.pid) || true

@@ -1,0 +1,6 @@
+flowchart LR
+  U[User] --> M[Mobile App]
+  M -->|Challenge request| D[Desktop Daemon]
+  D -->|Fallback challenge| M
+  M -->|Haptics + Ultrasonic + Proof| D
+  D -->|Verification result| W[Web Portal Session State]

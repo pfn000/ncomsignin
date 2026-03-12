@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        min-width: 300px;
+        background: #000000;
+      }
+      .card {
+        margin: 12px;
+        padding: 14px;
+        border-radius: 24px;
+        background: #000000;
+        border: 1px solid #1f2937;
+        color: #f3f4f6;
+      }
+      #state { font-weight: 700; color: #93c5fd; }
+      button, input {
+        width: 100%;
+        margin-top: 8px;
+        padding: 10px;
+        border-radius: 12px;
+        border: 1px solid #374151;
+        background: #111827;
+        color: #f9fafb;
+      }
+      button { cursor: pointer; }
+      .small { font-size: 12px; color: #9ca3af; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h3>Tap-N-Sign (TNS)</h3>
+      <p>Daemon: <span id="state">Checking...</span></p>
+      <input id="sessionId" placeholder="Paste verified session id" />
+      <button id="verify">Verify Handshake</button>
+      <button id="autofill">Autofill Current Login</button>
+      <button id="update-check">Check Extension Update</button>
+      <p id="updated" class="small"></p>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
