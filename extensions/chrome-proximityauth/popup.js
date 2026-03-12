@@ -43,4 +43,16 @@ document.getElementById('autofill').addEventListener('click', async () => {
   updated.textContent = response?.ok ? 'Autofill sent to page.' : `Autofill blocked: ${response?.reason || 'unknown'}`;
 });
 
+document.getElementById('update-check').addEventListener('click', async () => {
+  const response = await chrome.runtime.sendMessage({ type: 'CHECK_EXTENSION_UPDATE' });
+  if (!response?.ok) {
+    updated.textContent = `Update check failed: ${response?.reason || 'unknown'}`;
+    return;
+  }
+
+  const status = response.updateStatus || 'unknown';
+  const version = response.updateVersion ? ` (${response.updateVersion})` : '';
+  updated.textContent = `Update status: ${status}${version}`;
+});
+
 updateState();

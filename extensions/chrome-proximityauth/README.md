@@ -7,6 +7,8 @@ Tap-N-Sign browser companion for local daemon handshake and consented autofill.
 - Verifies short-lived TNS handshake sessions from daemon (`/extension/session/:sessionId`).
 - Autofills the active login form only after successful handshake.
 - Supports direct extension-first flow (no website tab required).
+- Runs extension update checks (`chrome.runtime.requestUpdateCheck`) on startup and scheduled intervals.
+- Popup UI uses 24px rounded card styling on pure black background (`#000000`).
 
 ## Security behavior
 - Autofill is blocked unless handshake is verified.

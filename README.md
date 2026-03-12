@@ -47,6 +47,12 @@ OAuth validates authorization grants, but does not prove physical-nearby presenc
 - **Extension-first workflow:** users can authenticate from extension popup without opening portal first.
 - **Handshake-gated autofill:** extension autofill is unlocked only after short-lived verified local handshake.
 
+
+## GitHub tabs
+
+- [ABOUT.md](ABOUT.md)
+- [LEGAL.md](LEGAL.md)
+
 ## Repository layout
 
 - `apps/web`: Next.js 14 portal.

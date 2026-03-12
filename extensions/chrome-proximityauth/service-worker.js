@@ -15,6 +15,31 @@ async function checkDaemon() {
   }
 }
 
+async function checkForExtensionUpdate() {
+  try {
+    const result = await chrome.runtime.requestUpdateCheck();
+    const status = typeof result === 'string' ? result : result.status;
+    const details = typeof result === 'string' ? {} : result;
+
+    await chrome.storage.local.set({
+      updateStatus: status,
+      updateLastCheckAt: Date.now(),
+      updateVersion: details.version || null
+    });
+
+    if (status === 'update_available') {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="black"/></svg>',
+        title: 'ProximityAuth Extension Update',
+        message: `A new extension version is available${details.version ? ` (${details.version})` : ''}. Restart Chrome to apply update.`
+      });
+    }
+  } catch {
+    await chrome.storage.local.set({ updateStatus: 'error', updateLastCheckAt: Date.now() });
+  }
+}
+
 function originFromUrl(urlString) {
   try {
     return new URL(urlString).origin;
@@ -97,17 +122,29 @@ async function autofillTab(tabId, url) {
 
 chrome.runtime.onInstalled.addListener(async () => {
   chrome.alarms.create('proximity-daemon-health', { periodInMinutes: 1 });
+  chrome.alarms.create('proximity-extension-update-check', { periodInMinutes: 60 });
   await chrome.storage.local.set({
     credentialsVault: {
       'https://twitter.com': { username: 'demo@example.com', password: 'change-me' }
     }
   });
+  await checkDaemon();
+  await checkForExtensionUpdate();
+});
+
+chrome.runtime.onStartup.addListener(async () => {
+  await checkDaemon();
+  await checkForExtensionUpdate();
   checkDaemon();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'proximity-daemon-health') {
     checkDaemon();
+  }
+
+  if (alarm.name === 'proximity-extension-update-check') {
+    checkForExtensionUpdate();
   }
 });
 
@@ -119,6 +156,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'AUTOFILL_ACTIVE_TAB') {
     autofillTab(message.tabId, message.url).then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'CHECK_EXTENSION_UPDATE') {
+    checkForExtensionUpdate()
+      .then(async () => {
+        const status = await chrome.storage.local.get(['updateStatus', 'updateVersion', 'updateLastCheckAt']);
+        sendResponse({ ok: true, ...status });
+      })
+      .catch(() => sendResponse({ ok: false, reason: 'update check failed' }));
     return true;
   }
 
