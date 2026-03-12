@@ -135,6 +135,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 chrome.runtime.onStartup.addListener(async () => {
   await checkDaemon();
   await checkForExtensionUpdate();
+  checkDaemon();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {

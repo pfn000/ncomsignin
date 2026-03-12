@@ -79,6 +79,8 @@ export const createPhysicalFallbackChallenge = (noiseProfile?: NoiseProfile): Ph
   const issuedAtMs = Date.now();
   const scale = noiseProfile?.suggestedIntensityScale ?? 1;
 
+export const createPhysicalFallbackChallenge = (): PhysicalFallbackChallenge => {
+  const issuedAtMs = Date.now();
   return {
     challengeId: `fallback-${issuedAtMs}`,
     issuedAtMs,
@@ -93,6 +95,14 @@ export const createPhysicalFallbackChallenge = (noiseProfile?: NoiseProfile): Ph
       { durationMs: 220, gapAfterMs: 120, intensity: clamp(1 * scale, 0.6, 1) }
     ],
     noiseProfile
+      { frequencyHz: 18250, gain: 0.35 },
+      { frequencyHz: 19400, gain: 0.3 }
+    ],
+    hapticBursts: [
+      { durationMs: 120, gapAfterMs: 70, intensity: 0.35 },
+      { durationMs: 180, gapAfterMs: 80, intensity: 0.66 },
+      { durationMs: 220, gapAfterMs: 120, intensity: 1 }
+    ]
   };
 };
 
@@ -131,6 +141,8 @@ export const verifyPhysicalFallback = (
   const ultrasonicScores = challenge.expectedBands.map((band) => {
     const magnitude = spectralMagnitude(denoised, sampleRateHz, band.frequencyHz);
     const normalized = magnitude / denoised.length;
+    const magnitude = spectralMagnitude(microphoneSamples, sampleRateHz, band.frequencyHz);
+    const normalized = magnitude / microphoneSamples.length;
     return normalized;
   });
 
@@ -138,6 +150,7 @@ export const verifyPhysicalFallback = (
   const tapProximityScore = Math.min(1, Math.max(...microphoneSamples.map((sample) => Math.abs(sample))) * 1.8);
 
   const accepted = hapticScore >= 0.7 && ultrasonicScore >= 0.008 && tapProximityScore >= 0.55;
+  const accepted = hapticScore >= 0.7 && ultrasonicScore >= 0.015 && tapProximityScore >= 0.55;
 
   return {
     accepted,

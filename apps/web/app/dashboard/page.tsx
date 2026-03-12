@@ -8,6 +8,7 @@ const fallbackSteps = [
   'Place phone directly against the computer display to ensure near-field contact.',
   'Phone emits compressed haptic bursts and mixed ultrasonic bands (18-20 kHz).',
   'Desktop microphone validates haptic timing, ultrasonic token, and contact impulse profile.'
+  { name: 'Office Workstation', mode: 'Physical fallback enabled', status: 'Pending pairing' }
 ];
 
 export default function DashboardPage() {
@@ -18,6 +19,9 @@ export default function DashboardPage() {
         <p className="text-slate-300">Manage trusted devices and desktop daemon enrollment state.</p>
       </div>
 
+    <section className="space-y-4">
+      <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <p className="text-slate-300">Manage trusted devices and desktop daemon enrollment state.</p>
       <ul className="space-y-3">
         {devices.map((device) => (
           <li key={device.name} className="rounded border border-slate-800 p-3">

@@ -19,6 +19,10 @@ const demoChallenge = {
     { durationMs: 220, gapAfterMs: 120, intensity: 1 }
   ]
 };
+import { Provider as PaperProvider, Text } from 'react-native-paper';
+import { appTheme } from './src/theme/paperTheme';
+import { useEffect, useState } from 'react';
+import { discoverDaemons } from './src/services/zeroconf';
 
 export default function App() {
   const scheme = useColorScheme();
