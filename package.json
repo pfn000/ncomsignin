@@ -1,0 +1,17 @@
+{
+  "name": "proximityauth",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @proximityauth/web && npm run build -w @proximityauth/daemon",
+    "lint": "npm run lint -w @proximityauth/web && npm run lint -w @proximityauth/daemon",
+    "typecheck": "npm run typecheck -w @proximityauth/web && npm run typecheck -w @proximityauth/daemon && npm run typecheck -w @proximityauth/mobile"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
