@@ -8,6 +8,8 @@ import mic from 'mic';
 import { fft } from 'fft-js';
 import DSP from 'dsp.js';
 import { createPhysicalFallbackChallenge, verifyPhysicalFallback } from './physicalFallback';
+import { fft } from 'fft-js';
+import DSP from 'dsp.js';
 
 const port = Number(process.env.DAEMON_PORT ?? 8787);
 const jwtSecret = process.env.JWT_SECRET ?? 'development-secret';
@@ -18,6 +20,7 @@ const bonjour = new Bonjour();
 let currentFallbackChallenge = createPhysicalFallbackChallenge();
 
 app.use(express.json({ limit: '2mb' }));
+app.use(express.json());
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'proximityauth-daemon' });
@@ -65,6 +68,7 @@ app.ws('/proximity', (ws) => {
 
     const bins = fft(input);
     const magnitudes = bins.map((pair: [number, number]) => Math.hypot(pair[0], pair[1]));
+    const magnitudes = bins.map(([re, im]) => Math.hypot(re, im));
     const maxMagnitude = Math.max(...magnitudes);
     const normalized = maxMagnitude / input.length;
 

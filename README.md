@@ -7,6 +7,8 @@ This repository contains a full multi-component baseline implementation for **Pr
 - `apps/web`: Next.js 14 web portal (landing, sign-up, login, dashboard, download QR).
 - `apps/daemon`: Node.js 20 desktop daemon with mDNS publishing, JWT verification, websocket ingestion, FFT/DSP signal analysis, and physical fallback verification.
 - `apps/mobile`: Expo React Native app with dark mode, react-native-paper theme, mDNS discovery using `react-native-zeroconf`, and tap-to-screen fallback orchestration.
+- `apps/daemon`: Node.js 20 desktop daemon with mDNS publishing, JWT verification, websocket ingestion, and FFT/DSP signal analysis.
+- `apps/mobile`: Expo React Native app with dark mode, react-native-paper theme, and mDNS discovery using `react-native-zeroconf`.
 - `packages/shared`: shared TypeScript contracts.
 
 ## Dependency and platform alignment
@@ -61,3 +63,7 @@ npm run start -w @proximityauth/mobile
 4. UI validation (responsive Tailwind pages and QR code rendering).
 5. Authentication validation (JWT verification endpoint + physical fallback scores).
 6. System integrity checks (mobile daemon discovery + signal-analysis payload path + tap-to-screen verification).
+3. Runtime checks (`/health`, websocket `/proximity`, mDNS scan events).
+4. UI validation (responsive Tailwind pages and QR code rendering).
+5. Authentication validation (JWT verification endpoint).
+6. System integrity checks (mobile daemon discovery + signal-analysis payload path).

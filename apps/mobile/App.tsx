@@ -19,6 +19,10 @@ const demoChallenge = {
     { durationMs: 220, gapAfterMs: 120, intensity: 1 }
   ]
 };
+import { Provider as PaperProvider, Text } from 'react-native-paper';
+import { appTheme } from './src/theme/paperTheme';
+import { useEffect, useState } from 'react';
+import { discoverDaemons } from './src/services/zeroconf';
 
 export default function App() {
   const scheme = useColorScheme();
@@ -29,23 +33,10 @@ export default function App() {
     return stop;
   }, []);
 
-  const handlePhoneTapAuth = async () => {
-    try {
-      setStatus('Run physical fallback: hold phone against monitor and wait...');
-      const proof = await runPhysicalFallbackChallenge(demoChallenge, 'mobile-demo-device');
-      setStatus(`Fallback proof generated: ${proof.challengeId}`);
-    } catch (error) {
-      setStatus(`Fallback failed: ${(error as Error).message}`);
-    }
-  };
-
   return (
     <PaperProvider theme={appTheme(scheme === 'dark')}>
       <Text variant="headlineMedium">ProximityAuth Mobile</Text>
       <Text>{status}</Text>
-      <Button mode="contained" onPress={handlePhoneTapAuth} style={{ marginTop: 12 }}>
-        Tap Phone To Screen (Fallback Auth)
-      </Button>
     </PaperProvider>
   );
 }
