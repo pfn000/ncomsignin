@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "ProximityAuth",
+    "slug": "proximityauth",
+    "scheme": "proximityauth",
+    "plugins": [],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.proximityauth.mobile"
+    }
+  }
+}
