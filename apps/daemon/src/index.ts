@@ -4,6 +4,10 @@ import Bonjour from 'bonjour-service';
 import express from 'express';
 import expressWs from 'express-ws';
 import jwt from 'jsonwebtoken';
+import mic from 'mic';
+import { fft } from 'fft-js';
+import DSP from 'dsp.js';
+import { createPhysicalFallbackChallenge, verifyPhysicalFallback } from './physicalFallback';
 import { fft } from 'fft-js';
 import DSP from 'dsp.js';
 
@@ -13,6 +17,9 @@ const appBase = express();
 const { app } = expressWs(appBase);
 const bonjour = new Bonjour();
 
+let currentFallbackChallenge = createPhysicalFallbackChallenge();
+
+app.use(express.json({ limit: '2mb' }));
 app.use(express.json());
 
 app.get('/health', (_req, res) => {
@@ -33,6 +40,24 @@ app.post('/verify-token', (req, res) => {
   }
 });
 
+app.post('/fallback/challenge', (_req, res) => {
+  currentFallbackChallenge = createPhysicalFallbackChallenge();
+  res.json(currentFallbackChallenge);
+});
+
+app.post('/fallback/verify', (req, res) => {
+  const proof = req.body?.proof;
+  const sampleRateHz = Number(req.body?.sampleRateHz ?? 44100);
+  const samples = (req.body?.samples as number[] | undefined) ?? [];
+
+  if (!proof || !Array.isArray(samples) || samples.length === 0) {
+    return res.status(400).json({ error: 'proof and samples are required' });
+  }
+
+  const result = verifyPhysicalFallback(currentFallbackChallenge, proof, samples, sampleRateHz);
+  return res.json(result);
+});
+
 app.ws('/proximity', (ws) => {
   ws.on('message', (rawData) => {
     const input = rawData.toString().split(',').map(Number).filter(Number.isFinite);
@@ -42,6 +67,7 @@ app.ws('/proximity', (ws) => {
     }
 
     const bins = fft(input);
+    const magnitudes = bins.map((pair: [number, number]) => Math.hypot(pair[0], pair[1]));
     const magnitudes = bins.map(([re, im]) => Math.hypot(re, im));
     const maxMagnitude = Math.max(...magnitudes);
     const normalized = maxMagnitude / input.length;
@@ -65,6 +91,10 @@ app.listen(port, () => {
     type: 'proximityauth',
     port
   });
+
+  const micInstance = mic({ rate: '44100', channels: '1', debug: false, exitOnSilence: 0 });
+  const micInput = micInstance.getAudioStream();
+  micInput.on('error', () => undefined);
 
   console.log(`Daemon listening on ${port}`);
 });
